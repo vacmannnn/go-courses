@@ -1,0 +1,8 @@
+select, mutex, close&for-range
+goroutine leak
+
+var vs :=
+
+defer / panic
+
+сделать оформление в 1 презе
