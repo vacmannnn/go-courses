@@ -20,4 +20,8 @@ func divide(a, b int) {
 func main() {
 	divide(10, 0)
 	fmt.Println("program continues")
+	fmt.Println("program continues")
+	fmt.Println("program continues")
+	fmt.Println("program continues")
+	fmt.Println("program continues")
 }

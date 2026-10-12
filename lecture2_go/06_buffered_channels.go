@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
 	sem := make(chan int, 2)
@@ -13,6 +16,7 @@ func main() {
 		fmt.Println("записали 3")
 	}()
 
+	time.Sleep(1 * time.Second)
 	fmt.Println(<-sem)
 	fmt.Println(<-sem)
 	fmt.Println(<-sem)
