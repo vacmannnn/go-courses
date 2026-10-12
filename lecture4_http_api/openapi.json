@@ -1,0 +1,316 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Books API",
+    "version": "1.0.0",
+    "description": "Учебный HTTP API на net/http. Данные хранятся в памяти."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/books": {
+      "get": {
+        "summary": "Список книг",
+        "operationId": "listBooks",
+        "responses": {
+          "200": {
+            "description": "Books sorted by ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Book"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать книгу",
+        "operationId": "createBook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Book created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "URL новой книги",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID or JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Expected application/json",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Blank title or author",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Получить книгу",
+        "operationId": "getBook",
+        "responses": {
+          "200": {
+            "description": "Book",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID or JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Полностью заменить существующую книгу",
+        "operationId": "replaceBook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Book replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Book"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID or JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Expected application/json",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Blank title or author",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удалить книгу",
+        "operationId": "deleteBook",
+        "responses": {
+          "204": {
+            "description": "Deleted, no response body"
+          },
+          "400": {
+            "description": "Invalid ID or JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BookInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "author"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Не должно состоять только из пробелов",
+            "example": "The Go Programming Language"
+          },
+          "author": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Не должно состоять только из пробелов",
+            "example": "Alan Donovan, Brian Kernighan"
+          }
+        }
+      },
+      "Book": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          }
+        }
+      },
+      "APIError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "validation_error"
+              },
+              "message": {
+                "type": "string",
+                "example": "title and author must not be blank"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
