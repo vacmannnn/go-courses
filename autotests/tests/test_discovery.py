@@ -28,7 +28,7 @@ class DiscoveryTests(unittest.TestCase):
         return module
 
     def test_branch_names(self):
-        for branch in ("task3", "task-3", "task_03", "feature/task3", "task3-fix"):
+        for branch in ("3", "03", "feature/3", "task3", "task-3", "task_03", "feature/task3", "task3-fix"):
             self.assertEqual(ci.detect_task(branch), "task3")
 
     def test_branch_without_task_fails(self):
@@ -41,7 +41,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_unimplemented_task_fails(self):
         with self.assertRaisesRegex(ValueError, "пока не реализованы"):
-            ci.detect_task("task4")
+            ci.detect_task("11")
 
     def test_root_module_and_main(self):
         self.module()

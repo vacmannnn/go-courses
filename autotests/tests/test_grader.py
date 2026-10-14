@@ -58,7 +58,7 @@ class GraderTests(unittest.TestCase):
                                 for t in data["tests"]))
 
     def test_unsupported_task_rejected(self):
-        result = subprocess.run(["python3", str(ROOT / "scripts/check.py"), "task4", "."],
+        result = subprocess.run(["python3", str(ROOT / "scripts/check.py"), "task11", "."],
                                 capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
 

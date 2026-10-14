@@ -37,6 +37,9 @@ def copy_solution(source, destination):
 
 
 def evaluate(task, source, package):
+    if int(task[4:]) >= 4:
+        from advanced import evaluate as evaluate_advanced
+        return evaluate_advanced(task, source)
     env = os.environ.copy()
     # Do not inherit an unrelated go.work or target architecture from the caller.
     env["GOWORK"] = "off"
@@ -93,15 +96,17 @@ def revision(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("task", choices=["task1", "task2", "task3"])
+    parser.add_argument("task", choices=[str(n) for n in range(1, 11)] + ["task" + str(n) for n in range(1, 11)])
     parser.add_argument("solution", type=Path, help="directory containing the student's go.mod")
     parser.add_argument("--package", default=".", help="main package directory relative to solution")
     parser.add_argument("--report", type=Path, help="optional JSON report path")
     args = parser.parse_args()
+    if args.task.isdigit():
+        args.task = "task" + args.task
     source = args.solution.expanduser().resolve()
     code, output = 1, ""
     try:
-        if not (source / "go.mod").is_file():
+        if int(args.task[4:]) < 7 and not (source / "go.mod").is_file():
             raise ValueError("solution must contain go.mod; select the task subdirectory if necessary")
         if not shutil.which("go"):
             raise ValueError("Go is not installed or is missing from PATH")

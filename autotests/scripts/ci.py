@@ -9,20 +9,22 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED = {"task1", "task2", "task3"}
+SUPPORTED = {"task" + str(number) for number in range(1, 11)}
 TASK_PATTERN = re.compile(r"(?:^|[^a-z0-9])task[-_ ]?0*([1-9][0-9]*)(?=$|[^a-z0-9])", re.I)
 IGNORED = {"vendor", "node_modules", "testdata", "reports", "__pycache__"}
 
 
 def tasks_in(value):
-    return {"task" + match for match in TASK_PATTERN.findall(value)}
+    tasks = {"task" + match for match in TASK_PATTERN.findall(value)}
+    tasks.update("task" + str(int(part)) for part in value.split("/") if re.fullmatch(r"0*[1-9][0-9]*", part))
+    return tasks
 
 
 def detect_task(branch):
     tasks = tasks_in(branch)
     if len(tasks) != 1:
         raise ValueError("Не удалось определить одно ДЗ по ветке {!r}. "
-                         "Назовите ветку task1, task2, task3 или feature/task3.".format(branch))
+                         "Назовите ветку 1–10, task1–task10 или feature/3.".format(branch))
     task = tasks.pop()
     if task not in SUPPORTED:
         raise ValueError("Для {} тесты пока не реализованы. Проверка не может считаться успешной.".format(task))
@@ -114,13 +116,17 @@ def main():
         repo = args.repo.expanduser().resolve()
         if not repo.is_dir():
             raise ValueError("Репозиторий решения не найден: " + str(repo))
-        task = detect_task(args.branch) if args.task == "auto" else args.task
+        task = detect_task(args.branch) if args.task == "auto" else detect_task(args.task)
         if task not in SUPPORTED:
             raise ValueError("Тесты для {} пока не реализованы".format(task))
-        module = detect_module(repo, task) if args.module == "auto" else inside(repo, args.module)
-        if not (module / "go.mod").is_file():
+        if args.module == "auto" and int(task[4:]) >= 7:
+            candidates = [repo / task, repo / task[4:]]
+            module = next((path for path in candidates if path.is_dir()), repo)
+        else:
+            module = detect_module(repo, task) if args.module == "auto" else inside(repo, args.module)
+        if int(task[4:]) < 7 and not (module / "go.mod").is_file():
             raise ValueError("В выбранном модуле нет go.mod: " + str(module))
-        package = detect_package(module, task) if args.package == "auto" else args.package
+        package = (detect_package(module, task) if int(task[4:]) < 4 else ".") if args.package == "auto" else args.package
         inside(module, package)
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         message = "Ошибка определения решения: " + str(exc)

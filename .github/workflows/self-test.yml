@@ -14,6 +14,7 @@ jobs:
         with:
           go-version-file: autotests/go.mod
           cache: false
+      - run: python3 -m pip install -r autotests/requirements.txt
       - run: make check
         working-directory: autotests
       - run: make test
