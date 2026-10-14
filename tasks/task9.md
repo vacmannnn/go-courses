@@ -9,6 +9,8 @@ Docker:
 - добавить `docker-compose.yml`, который поднимает оба сервиса и все зависимости: PostgreSQL, Redis, Kafka;
 - сервис должен запускаться одной командой, например `docker compose up`.
 
+`downloader-service` должен читать `MOVIE_BASE_URL` из окружения. Docker Compose должен позволять переопределить эту переменную для `downloader-service`; базовый URL фильм-стенда нельзя жёстко зашивать в код или Docker-образ. HTTP-порт `catalog-service` должен быть опубликован через Compose.
+
 Kubernetes:
 
 - добавить манифесты для `catalog-service` и `downloader-service`;

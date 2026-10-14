@@ -18,9 +18,9 @@ func main() {
 	from := flag.Int("from", 0, "first id")
 	to := flag.Int("to", 0, "last id")
 	workers := flag.Int("workers", 10, "worker count")
-	timeout := flag.Duration("timeout", 5*time.Second, "request timeout")
+	timeoutSeconds := flag.Int("timeout", 5, "request timeout in seconds")
 	flag.Parse()
-	if *from <= 0 || *to < *from || *workers <= 0 || *timeout <= 0 {
+	if *from <= 0 || *to < *from || *workers <= 0 || *timeoutSeconds <= 0 {
 		fmt.Fprintln(os.Stderr, "invalid range, worker count or timeout")
 		os.Exit(1)
 	}
@@ -39,7 +39,7 @@ func main() {
 					return
 				}
 				func() {
-					requestCtx, cancel := context.WithTimeout(ctx, *timeout)
+					requestCtx, cancel := context.WithTimeout(ctx, time.Duration(*timeoutSeconds)*time.Second)
 					defer cancel()
 					req, err := http.NewRequestWithContext(requestCtx, "GET", fmt.Sprintf("%s/%d/info.0.json", base, id), nil)
 					if err != nil {

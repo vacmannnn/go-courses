@@ -146,10 +146,10 @@ func TestCourseIndividualErrors(t *testing.T) {
 
 func TestCourseTimeout(t *testing.T) {
 	harness.RequireBinary(t)
-	upstream := &mockserver.Server{LastID: 2, ByID: map[int]mockserver.Behavior{1: {Delay: time.Second}}}
+	upstream := &mockserver.Server{LastID: 2, ByID: map[int]mockserver.Behavior{1: {Delay: 2 * time.Second}}}
 	server := httptest.NewServer(upstream)
 	defer server.Close()
-	output, _ := run(t, server.URL, "--from=1", "--to=2", "--workers=1", "--timeout=50ms")
+	output, _ := run(t, server.URL, "--from=1", "--to=2", "--workers=1", "--timeout=1")
 	expectMovie(t, output, 2)
 	_, canceled, _ := upstream.Stats()
 	if canceled < 1 {
@@ -170,7 +170,7 @@ func TestCourseInterrupt(t *testing.T) {
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	cmd := harness.Command(ctx, map[string]string{"MOVIE_BASE_URL": server.URL}, "--from=1", "--to=20", "--workers=2", "--timeout=10s")
+	cmd := harness.Command(ctx, map[string]string{"MOVIE_BASE_URL": server.URL}, "--from=1", "--to=20", "--workers=2", "--timeout=10")
 	var output harness.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
 	if err := cmd.Start(); err != nil {

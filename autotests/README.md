@@ -74,7 +74,7 @@ make test
 HTTP-контракт: `/load-movies?from=N&to=M` → JSON-массив; `/last-movie` → JSON-объект.
 Поля: `id` (число), `title` (строка), `year` (число), `director` (строка).
 Неверные параметры HTTP дают 400 с непустым описанием. Swagger доступен на `/swagger/index.html`.
-ДЗ 2: `--from`, `--to`, `--workers` (10), `--timeout` (`5s`, Go duration).
+ДЗ 2: `--from`, `--to`, `--workers` (10), `--timeout` (5).
 Вывод успешного фильма: `id — title — year — director`, порядок строк свободный.
 
 Требования к переменным окружения и путям необходимо включить в условия заданий,
