@@ -1,0 +1,9 @@
+# Push go-courses with the workflows before using this example.
+# Copy to .github/workflows/course.yml in the student's repository.
+name: Homework
+on: [pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  homework:
+    uses: vacmannnn/go-courses/.github/workflows/grade.yml@main

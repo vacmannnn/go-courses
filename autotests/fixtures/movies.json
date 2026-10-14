@@ -1,0 +1,5 @@
+[
+  {"id": 1, "title": "Solaris", "year": 1972, "director": "Andrei Tarkovsky", "description": "A psychologist visits a space station", "actors": ["Donatas Banionis"], "genres": ["science fiction"]},
+  {"id": 2, "title": "Spirited Away", "year": 2001, "director": "Hayao Miyazaki", "description": "A journey into a world of spirits", "actors": ["Rumi Hiiragi"], "genres": ["animation"]},
+  {"id": 3, "title": "The Grand Budapest Hotel", "year": 2014, "director": "Wes Anderson", "description": "The adventures of a hotel concierge", "actors": ["Ralph Fiennes"], "genres": ["comedy"]}
+]

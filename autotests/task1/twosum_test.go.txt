@@ -1,0 +1,59 @@
+package main
+
+import (
+	"math/rand"
+	"testing"
+)
+
+func courseCheckPair(t *testing.T, nums []int, target int) {
+	t.Helper()
+	got := twoSum(append([]int(nil), nums...), target)
+	if len(got) != 2 {
+		t.Fatalf("twoSum(%v, %d): expected two indices, got %v", nums, target, got)
+	}
+	i, j := got[0], got[1]
+	if i < 0 || j < 0 || i >= len(nums) || j >= len(nums) || i == j {
+		t.Fatalf("invalid indices %v for %v: indices must be distinct and in bounds", got, nums)
+	}
+	if nums[i]+nums[j] != target {
+		t.Fatalf("indices %v: %d + %d != %d", got, nums[i], nums[j], target)
+	}
+}
+
+func TestCourseTwoSum(t *testing.T) {
+	cases := []struct {
+		name   string
+		nums   []int
+		target int
+	}{
+		{"basic", []int{2, 7, 11, 15}, 9},
+		{"not_first_pair", []int{3, 2, 4}, 6},
+		{"duplicates", []int{3, 3}, 6},
+		{"negative", []int{-8, -3, -5, 9}, -13},
+		{"zero", []int{0, 4, 3, 0}, 0},
+		{"no_self_reuse", []int{3, 2, 4}, 6},
+		{"last_pair", []int{100, 200, 300, 4, 9}, 13},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) { courseCheckPair(t, tc.nums, tc.target) })
+	}
+}
+
+func TestCourseTwoSumGenerated(t *testing.T) {
+	rng := rand.New(rand.NewSource(2026))
+	for n := 2; n < 80; n++ {
+		nums := make([]int, n)
+		// Positive distractors cannot sum to the negative target.
+		perm := rng.Perm(n)
+		for i := range nums {
+			nums[i] = (perm[i] + 1) * 1000
+		}
+		// Replace two entries with a unique negative pair.
+		i, j := rng.Intn(n), rng.Intn(n-1)
+		if j >= i {
+			j++
+		}
+		nums[i], nums[j] = -n*10-1, -n*10-3
+		courseCheckPair(t, nums, -n*20-4)
+	}
+}
