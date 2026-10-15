@@ -2,7 +2,8 @@
 
 Основная инструкция подключения — в [корневом README](../README.md).
 Студент один раз добавляет `ci-example.yml` в `.github/workflows/course.yml`.
-Для каждого задания создаёт ветку `1`–`10`; `task1`–`task10` тоже поддерживаются.
+Для каждого задания открывает PR с номером ДЗ в заголовке: например, `ДЗ 3` или `task3`.
+Имя ветки произвольное; при изменении заголовка PR проверка запускается повторно.
 Результат находится в Checks его PR. Параметры CI менять не нужно.
 
 ## Запуск
@@ -12,7 +13,7 @@ cd ~/code/go-courses/autotests
 python3 -m pip install -r requirements.txt
 
 # Автоматически определить ДЗ и структуру:
-python3 scripts/ci.py --repo ~/code/student-homework --branch 7
+python3 scripts/ci.py --repo ~/code/student-homework --pr-title "ДЗ 7"
 
 # Локальный запуск указанного задания (номер или taskN):
 ./scripts/check.sh 3 ~/code/student-homework --package cmd/server

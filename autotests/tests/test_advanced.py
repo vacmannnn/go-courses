@@ -37,14 +37,14 @@ class AdvancedTests(unittest.TestCase):
             self.write(layer + "/types.go", "package " + layer + "\ntype Movie struct { ID int }\n")
         self.write("cmd/server/main.go", "package main\nfunc main() {}\n")
 
-    def test_all_ten_numeric_branches(self):
+    def test_all_ten_numeric_pr_titles(self):
         for number in range(1, 11):
             self.assertEqual(ci.detect_task(str(number)), "task" + str(number))
             self.assertEqual(ci.detect_task("task" + str(number)), "task" + str(number))
 
     def test_does_not_extract_arbitrary_issue_number(self):
         with self.assertRaises(ValueError):
-            ci.detect_task("feature/issue-3")
+            ci.detect_task("Fix issue3")
 
     def test_numbered_module_selection(self):
         for number in (1, 2, 3):

@@ -81,11 +81,11 @@ jobs:
           COURSE_TASK: ${{ inputs.task }}
           COURSE_MODULE: ${{ inputs.solution-dir }}
           COURSE_PACKAGE: ${{ inputs.package-dir }}
-          COURSE_BRANCH: ${{ github.head_ref || github.ref_name }}
+          COURSE_PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python3 course-tests/autotests/scripts/ci.py \
             --repo "$GITHUB_WORKSPACE/submission" \
-            --branch "$COURSE_BRANCH" \
+            --pr-title "$COURSE_PR_TITLE" \
             --task "$COURSE_TASK" \
             --module "$COURSE_MODULE" \
             --package "$COURSE_PACKAGE" \

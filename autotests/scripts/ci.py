@@ -20,11 +20,13 @@ def tasks_in(value):
     return tasks
 
 
-def detect_task(branch):
-    tasks = tasks_in(branch)
+def detect_task(title):
+    tasks = {"task" + match for match in TASK_PATTERN.findall(title)}
+    tasks.update("task" + str(int(number))
+                 for number in re.findall(r"(?<!\w)0*([1-9][0-9]*)(?!\w)", title))
     if len(tasks) != 1:
-        raise ValueError("Не удалось определить одно ДЗ по ветке {!r}. "
-                         "Назовите ветку 1–10, task1–task10 или feature/3.".format(branch))
+        raise ValueError("Не удалось определить одно ДЗ по заголовку PR {!r}. "
+                         "Укажите в заголовке один номер ДЗ: например, 'ДЗ 3' или 'task3'.".format(title))
     task = tasks.pop()
     if task not in SUPPORTED:
         raise ValueError("Для {} тесты пока не реализованы. Проверка не может считаться успешной.".format(task))
@@ -106,7 +108,7 @@ def detect_package(module, task):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, type=Path)
-    parser.add_argument("--branch", default=os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME", ""))
+    parser.add_argument("--pr-title", default=os.environ.get("COURSE_PR_TITLE", ""))
     parser.add_argument("--task", default="auto")
     parser.add_argument("--module", default="auto")
     parser.add_argument("--package", default="auto")
@@ -116,7 +118,7 @@ def main():
         repo = args.repo.expanduser().resolve()
         if not repo.is_dir():
             raise ValueError("Репозиторий решения не найден: " + str(repo))
-        task = detect_task(args.branch) if args.task == "auto" else detect_task(args.task)
+        task = detect_task(args.pr_title) if args.task == "auto" else detect_task(args.task)
         if task not in SUPPORTED:
             raise ValueError("Тесты для {} пока не реализованы".format(task))
         if args.module == "auto" and int(task[4:]) >= 7:
@@ -133,7 +135,7 @@ def main():
         print(message, file=sys.stderr)
         if args.report:
             args.report.parent.mkdir(parents=True, exist_ok=True)
-            args.report.write_text(json.dumps({"status": "fail", "stage": "discovery", "branch": args.branch,
+            args.report.write_text(json.dumps({"status": "fail", "stage": "discovery", "pr_title": args.pr_title,
                                                "tests": [], "log": message}, ensure_ascii=False, indent=2) + "\n")
         return 1
     print("ДЗ: {} | модуль: {} | пакет main: {}".format(task, module.relative_to(repo), package), flush=True)

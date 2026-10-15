@@ -1,6 +1,7 @@
 """Discovery must select the current homework and reject ambiguous layouts."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -27,17 +28,23 @@ class DiscoveryTests(unittest.TestCase):
         (main / "main.go").write_text("package main\nfunc main() {}\n")
         return module
 
-    def test_branch_names(self):
-        for branch in ("3", "03", "feature/3", "task3", "task-3", "task_03", "feature/task3", "task3-fix"):
-            self.assertEqual(ci.detect_task(branch), "task3")
+    def test_pr_titles(self):
+        for title in ("3", "03", "ДЗ 3", "ДЗ №3: HTTP API", "Homework 3", "task3",
+                      "task-3 — HTTP API", "task_03", "Решение task3", "task3-fix"):
+            with self.subTest(title=title):
+                self.assertEqual(ci.detect_task(title), "task3")
 
-    def test_branch_without_task_fails(self):
-        with self.assertRaisesRegex(ValueError, "по ветке"):
+    def test_pr_title_without_task_fails(self):
+        with self.assertRaisesRegex(ValueError, "по заголовку PR"):
             ci.detect_task("feature/movies")
 
-    def test_ambiguous_branch_fails(self):
-        with self.assertRaises(ValueError):
-            ci.detect_task("task1/task3")
+    def test_ambiguous_pr_title_fails(self):
+        for title in ("task1/task3", "ДЗ 1 и 3", "task1 и ДЗ 3"):
+            with self.subTest(title=title), self.assertRaises(ValueError):
+                ci.detect_task(title)
+
+    def test_repeated_homework_number_is_unambiguous(self):
+        self.assertEqual(ci.detect_task("ДЗ 3 (task3)"), "task3")
 
     def test_unimplemented_task_fails(self):
         with self.assertRaisesRegex(ValueError, "пока не реализованы"):
@@ -104,14 +111,28 @@ class DiscoveryTests(unittest.TestCase):
     def test_discovery_failure_produces_red_report(self):
         report = self.repo / "report.json"
         result = subprocess.run(["python3", str(ROOT / "scripts/ci.py"), "--repo", str(self.repo),
-                                 "--branch", "task3", "--report", str(report)],
+                                 "--pr-title", "task3", "--report", str(report)],
                                 capture_output=True, text=True, timeout=30)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(json.loads(report.read_text())["status"], "fail")
 
+    def test_branch_number_is_not_used_when_title_has_no_task(self):
+        report = self.repo / "report.json"
+        env = dict(os.environ, GITHUB_HEAD_REF="task1", GITHUB_REF_NAME="task1",
+                   COURSE_PR_TITLE="Movie service")
+        result = subprocess.run(["python3", str(ROOT / "scripts/ci.py"),
+                                 "--repo", str(ROOT / "testdata/task1-good"),
+                                 "--report", str(report)], env=env,
+                                capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        data = json.loads(report.read_text())
+        self.assertEqual(data["pr_title"], "Movie service")
+        self.assertIn("по заголовку PR", data["log"])
+
     def test_automatic_grading_end_to_end(self):
         result = subprocess.run(["python3", str(ROOT / "scripts/ci.py"),
-                                 "--repo", str(ROOT / "testdata/task1-good"), "--branch", "task1"],
+                                 "--repo", str(ROOT / "testdata/task1-good"), "--pr-title", "ДЗ 1"],
+                                env=dict(os.environ, GITHUB_HEAD_REF="task3", GITHUB_REF_NAME="task3"),
                                 capture_output=True, text=True, timeout=180)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS: task1", result.stdout)
