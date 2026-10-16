@@ -4,6 +4,13 @@
 в [`autotests/`](autotests/). В CI подключены все десять ДЗ; объём проверок указан ниже.
 Результат проверки: прошли/не прошли, с деталями по каждому тесту.
 
+## Примеры для лекций
+
+- [`lecture4_http_api/`](lecture4_http_api/) — HTTP API книг и Swagger UI.
+- [`lecture5_grpc/`](lecture5_grpc/) — gRPC-клиент и сервер, Protobuf, ошибки,
+  deadlines, metadata, interceptors, server streaming и эволюция контракта.
+  Команды для демонстраций — в README каждого примера.
+
 ## Подключение автоматической проверки
 
 ### Настройка репозитория преподавателя
