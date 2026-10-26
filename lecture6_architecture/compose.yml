@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: lecture
+      POSTGRES_PASSWORD: lecture
+      POSTGRES_DB: orders
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
