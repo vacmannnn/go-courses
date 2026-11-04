@@ -64,11 +64,14 @@ def films(base, path="/load-movies?from=1&to=3"):
     return data
 
 
-def expect_catalog(base):
-    data = films(base)
-    require(sorted(movie.get("id") for movie in data) == [1, 2, 3], "Expected exactly movie ids 1,2,3: " + repr(data))
+def expect_catalog(base, movies=None):
+    expected = MOVIES if movies is None else movies
+    data = films(base, "/load-movies?from=1&to=" + str(len(expected)))
+    by_id = {movie["id"]: movie for movie in expected}
+    require(sorted(movie.get("id") for movie in data) == sorted(by_id),
+            "Expected exactly movie ids {}: {}".format(sorted(by_id), repr(data)))
     for movie in data:
-        want = MOVIES[movie["id"] - 1]
+        want = by_id[movie["id"]]
         for field in ("title", "year", "director"):
             require(movie.get(field) == want[field], "Wrong {} for movie {}".format(field, movie["id"]))
     return True
@@ -84,6 +87,7 @@ class Upstream:
     def __init__(self):
         self.offline = False
         self.requests = []
+        self.movies = list(MOVIES)
         self.lock = threading.Lock()
         upstream = self
 
@@ -92,13 +96,15 @@ class Upstream:
                 match = re.fullmatch(r"/([1-9][0-9]*)/info\.0\.json", self.path)
                 with upstream.lock:
                     upstream.requests.append(self.path)
-                if upstream.offline:
+                    offline = upstream.offline
+                    movies = list(upstream.movies)
+                if offline:
                     self.send_error(500)
                     return
-                if not match or int(match[1]) > len(MOVIES):
+                if not match or int(match[1]) > len(movies):
                     self.send_error(404)
                     return
-                body = json.dumps(MOVIES[int(match[1]) - 1]).encode()
+                body = json.dumps(movies[int(match[1]) - 1]).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -113,6 +119,10 @@ class Upstream:
         self.thread.start()
         self.port = self.server.server_port
         self.url = "http://127.0.0.1:" + str(self.port)
+
+    def set_movies(self, movies):
+        with self.lock:
+            self.movies = list(movies)
 
     def close(self):
         self.server.shutdown()
@@ -214,13 +224,24 @@ class Docker:
     def sql(self, query):
         return self.exec(self.pg, "psql", "-X", "-U", "course", "-d", "movies", "-tA", "-v", "ON_ERROR_STOP=1", "-c", query).strip()
 
-    def stored_movies(self):
-        tables = json.loads(self.sql("SELECT coalesce(json_agg(table_name), '[]') FROM information_schema.columns WHERE table_schema='public' AND column_name='title'"))
+    def movie_tables(self):
+        tables = json.loads(self.sql("""
+            SELECT coalesce(json_agg(c.table_name), '[]')
+            FROM information_schema.columns c
+            JOIN information_schema.tables t USING (table_schema, table_name)
+            WHERE c.table_schema='public' AND c.column_name='title'
+              AND t.table_type='BASE TABLE'
+        """))
         require(tables, "PostgreSQL must contain a public movie table with a title column")
+        return tables
+
+    def stored_movies(self, movies=None):
+        expected = MOVIES if movies is None else movies
+        titles = ",".join("'" + movie["title"].replace("'", "''") + "'" for movie in expected)
         total = 0
-        for table in tables:
+        for table in self.movie_tables():
             quoted = '"' + table.replace('"', '""') + '"'
-            total += int(self.sql("SELECT count(*) FROM " + quoted + " WHERE title IN ('Solaris','Spirited Away','The Grand Budapest Hotel')"))
+            total += int(self.sql("SELECT count(*) FROM " + quoted + " WHERE title IN (" + titles + ")"))
         return total
 
     def redis_ttls(self):
@@ -264,7 +285,7 @@ class Apps:
         require(len(matches) == 1, "Expected one {} main package, found {}".format(role, matches))
         return matches[0]
 
-    def start(self):
+    def start(self, expected_movies=None):
         port = free_port()
         self.base = "http://127.0.0.1:" + str(port)
         env = dict(self.env, HTTP_ADDR="127.0.0.1:" + str(port), MOVIE_BASE_URL=self.upstream.url)
@@ -277,7 +298,7 @@ class Apps:
                                        stdout=logfile, stderr=subprocess.STDOUT)
             self.processes.append(process)
         try:
-            eventually(lambda: expect_catalog(self.base), timeout=45)
+            eventually(lambda: expect_catalog(self.base, expected_movies), timeout=45)
         except AssertionError as exc:
             raise AssertionError(str(exc) + "\nApplication logs:\n" + self.logs()) from exc
         return self.base
@@ -305,6 +326,77 @@ class Apps:
         self.stop()
         for file in self.logfiles:
             file.close()
+
+
+def task5_http_contract(base):
+    data = films(base, "/load-movies?from=2&to=2")
+    require(len(data) == 1 and all(data[0].get(field) == MOVIES[1][field] for field in ("id", "title", "year", "director")),
+            "A single-id range must return only the requested movie 2")
+    for query in ("from=3&to=1", "from=hello&to=3", "from=1&to=hello", "to=3", "from=1", ""):
+        status, _, body = http(base + "/load-movies?" + query)
+        require(status == 400 and body.strip(), "Invalid range must return HTTP 400 and an explanation: " + query)
+    status, _, body = http(base + "/swagger/index.html")
+    require(status == 200 and "<html" in body.lower() and "swagger" in body.lower(), "Expected Swagger HTML")
+
+
+def task5_stored_relations(docker, movies=None):
+    expected = MOVIES if movies is None else movies
+    tables = json.loads(docker.sql("SELECT coalesce(json_agg(table_name), '[]') FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"))
+    stored = []
+    for table in tables:
+        quoted = '"' + table.replace('"', '""') + '"'
+        stored.append(json.loads(docker.sql("SELECT coalesce(json_agg(row_to_json(t)), '[]') FROM " + quoted + " t")))
+    values = json.dumps(stored, ensure_ascii=False)
+    for movie in expected:
+        for field in ("actors", "genres"):
+            for value in movie[field]:
+                require(value in values, "PostgreSQL is missing {} value {!r} for movie {}".format(field, value, movie["id"]))
+
+
+def task5_database_source(apps, upstream, docker):
+    original = MOVIES[-1]["title"]
+    replacement = original + " (changed in PostgreSQL)"
+    quote = lambda value: "'" + value.replace("'", "''") + "'"
+    tables = docker.movie_tables()
+    previous_offline = upstream.offline
+    try:
+        changed = 0
+        for table in tables:
+            quoted = '"' + table.replace('"', '""') + '"'
+            changed += int(docker.sql("WITH changed AS (UPDATE " + quoted + " SET title=" + quote(replacement) +
+                                      " WHERE title=" + quote(original) + " RETURNING 1) SELECT count(*) FROM changed"))
+        require(changed > 0, "Could not find the fixture movie to update in PostgreSQL")
+        upstream.offline = True
+        with upstream.lock:
+            before = len(upstream.requests)
+        expected = [dict(movie) for movie in MOVIES]
+        expected[-1]["title"] = replacement
+        expect_catalog(apps.base, expected)
+        status, _, body = http(apps.base + "/last-movie")
+        require(status == 200, "last-movie must read PostgreSQL")
+        last = json.loads(body)
+        require(all(last.get(field) == expected[-1][field] for field in ("id", "title", "year", "director")),
+                "last-movie returned stale data instead of PostgreSQL data")
+        with upstream.lock:
+            require(len(upstream.requests) == before, "User API called the offline upstream")
+    finally:
+        upstream.offline = previous_offline
+        for table in tables:
+            quoted = '"' + table.replace('"', '""') + '"'
+            docker.sql("UPDATE " + quoted + " SET title=" + quote(original) + " WHERE title=" + quote(replacement))
+
+
+def task5_incremental_sync(apps, upstream, docker, expected):
+    apps.stop()
+    upstream.set_movies(expected)
+    apps.start(expected)
+    require(docker.stored_movies(expected) == len(expected), "New startup must persist the newly available movie without duplicates")
+    status, _, body = http(apps.base + "/last-movie")
+    require(status == 200, "last-movie must return the newly synchronized film")
+    last = json.loads(body)
+    require(all(last.get(field) == expected[-1][field] for field in ("id", "title", "year", "director")),
+            "last-movie did not advance to the newly synchronized film")
+    task5_stored_relations(docker, expected)
 
 
 def search(base):
@@ -609,6 +701,15 @@ def evaluate(task, source):
                     apps.start()
                     require(docker.stored_movies() == 3, "Restart/repeated sync created duplicate movies")
                 case("TestCourseIdempotentRestart", restart)
+                if number == 5:
+                    case("TestCourseTask5HTTPContract", lambda: task5_http_contract(apps.base))
+                    case("TestCourseActorGenreData", lambda: task5_stored_relations(docker))
+                    case("TestCourseDatabaseSourceOfTruth", lambda: task5_database_source(apps, upstream, docker))
+                    extended = MOVIES + [{"id": 4, "title": "Additional Course Movie", "year": 2020,
+                                          "director": "Course Director", "description": "A new film after the first startup",
+                                          "actors": ["Course Actor"], "genres": ["course genre"]}]
+                    case("TestCourseIncrementalSync", lambda: task5_incremental_sync(apps, upstream, docker, extended))
+                    case("TestCourseIncrementalSyncIdempotence", lambda: task5_incremental_sync(apps, upstream, docker, extended))
                 if number == 8:
                     case("TestCourseHTMLSearch", lambda: web_ui(apps.base))
                 case("TestCourseStudentCoverage" if number == 8 else "TestCourseStudentTests",
