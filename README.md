@@ -10,6 +10,8 @@
 - [`lecture5_grpc/`](lecture5_grpc/) — gRPC-клиент и сервер, Protobuf, ошибки,
   deadlines, metadata, interceptors, server streaming и эволюция контракта.
   Команды для демонстраций — в README каждого примера.
+- [`lecture7_sql/`](lecture7_sql/) — каталог фильмов в PostgreSQL, миграции goose,
+  ограничения, JOIN, pgxpool и сравнение ручного Scan с кодом sqlc.
 
 ## Подключение автоматической проверки
 
