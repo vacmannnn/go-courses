@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parent.parent
 MOVIES = json.loads((ROOT / "fixtures/movies.json").read_text())
+TASK5_MOVIES = [{field: movie[field] for field in ("id", "title", "year", "director")} for movie in MOVIES]
 
 
 def require(condition, message):
@@ -84,10 +85,10 @@ def free_port():
 
 
 class Upstream:
-    def __init__(self):
+    def __init__(self, movies=None):
         self.offline = False
         self.requests = []
-        self.movies = list(MOVIES)
+        self.movies = list(MOVIES if movies is None else movies)
         self.lock = threading.Lock()
         upstream = self
 
@@ -339,20 +340,6 @@ def task5_http_contract(base):
     require(status == 200 and "<html" in body.lower() and "swagger" in body.lower(), "Expected Swagger HTML")
 
 
-def task5_stored_relations(docker, movies=None):
-    expected = MOVIES if movies is None else movies
-    tables = json.loads(docker.sql("SELECT coalesce(json_agg(table_name), '[]') FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"))
-    stored = []
-    for table in tables:
-        quoted = '"' + table.replace('"', '""') + '"'
-        stored.append(json.loads(docker.sql("SELECT coalesce(json_agg(row_to_json(t)), '[]') FROM " + quoted + " t")))
-    values = json.dumps(stored, ensure_ascii=False)
-    for movie in expected:
-        for field in ("actors", "genres"):
-            for value in movie[field]:
-                require(value in values, "PostgreSQL is missing {} value {!r} for movie {}".format(field, value, movie["id"]))
-
-
 def task5_database_source(apps, upstream, docker):
     original = MOVIES[-1]["title"]
     replacement = original + " (changed in PostgreSQL)"
@@ -396,7 +383,6 @@ def task5_incremental_sync(apps, upstream, docker, expected):
     last = json.loads(body)
     require(all(last.get(field) == expected[-1][field] for field in ("id", "title", "year", "director")),
             "last-movie did not advance to the newly synchronized film")
-    task5_stored_relations(docker, expected)
 
 
 def search(base):
@@ -660,7 +646,7 @@ def evaluate(task, source):
                 cleanup.callback(docker.close)
                 case("TestCourseDependencies", lambda: docker.services(number))
                 env.update(docker.env)
-                upstream = Upstream()
+                upstream = Upstream(TASK5_MOVIES if number == 5 else None)
                 cleanup.callback(upstream.close)
                 apps = Apps(workspace, modules, number, env, upstream)
                 cleanup.callback(apps.close)
@@ -668,9 +654,11 @@ def evaluate(task, source):
                 def migrations():
                     files = list(workspace.rglob("*.sql"))
                     require(any("create table" in file.read_text().lower() for file in files), "Expected SQL schema/migration files with CREATE TABLE")
+                    if number == 5:
+                        return
                     names = docker.sql("SELECT string_agg(table_name || '.' || column_name, ',') FROM information_schema.columns WHERE table_schema='public'").lower()
                     require("actor" in names and "genre" in names, "Database schema must store actors and genres (tables or columns)")
-                case("TestCourseMigrationsAndRelations", migrations)
+                case("TestCourseMigrations" if number == 5 else "TestCourseMigrationsAndRelations", migrations)
                 case("TestCoursePostgresPersistence", lambda: require(docker.stored_movies() == 3, "Expected exactly three fixture movies in PostgreSQL"))
                 def offline_reads():
                     upstream.offline = True
@@ -703,11 +691,9 @@ def evaluate(task, source):
                 case("TestCourseIdempotentRestart", restart)
                 if number == 5:
                     case("TestCourseTask5HTTPContract", lambda: task5_http_contract(apps.base))
-                    case("TestCourseActorGenreData", lambda: task5_stored_relations(docker))
                     case("TestCourseDatabaseSourceOfTruth", lambda: task5_database_source(apps, upstream, docker))
-                    extended = MOVIES + [{"id": 4, "title": "Additional Course Movie", "year": 2020,
-                                          "director": "Course Director", "description": "A new film after the first startup",
-                                          "actors": ["Course Actor"], "genres": ["course genre"]}]
+                    extended = TASK5_MOVIES + [{"id": 4, "title": "Additional Course Movie", "year": 2020,
+                                                "director": "Course Director"}]
                     case("TestCourseIncrementalSync", lambda: task5_incremental_sync(apps, upstream, docker, extended))
                     case("TestCourseIncrementalSyncIdempotence", lambda: task5_incremental_sync(apps, upstream, docker, extended))
                 if number == 8:
